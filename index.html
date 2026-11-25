@@ -584,7 +584,7 @@ document.addEventListener('click',ev=>{
   if((el=q('a[href^="#"]'))){ev.preventDefault();go(el.getAttribute('href').slice(1));return}
   if((el=q('mark.hl[data-n],button[data-n]'))){ev.preventDefault();hideTip();openDrawer('note',el.dataset.n);return}
   if(!q('#tip'))hideTip();
-  if((el=q('[data-theme]'))){S.theme=S.theme===el.dataset.theme?null:el.dataset.theme;render();return}
+  if((el=q('[data-theme]'))&&el!==document.documentElement){S.theme=S.theme===el.dataset.theme?null:el.dataset.theme;render();return}
   if((el=q('[data-lens]'))){const k=el.dataset.lens;S[k]=!S[k];store.set(k,S[k]);render();return}
   if((el=q('[data-tagf]'))){const k=el.dataset.tagf; if(TAG[k].kind==='theme'){S.theme=k;render();} return}
   if((el=q('[data-say]'))){const k=el.dataset.say; if(S.open.has(k))S.open.delete(k);else S.open.add(k); const [id,ci]=k.split(':');const g=$('#g-'+id+'-'+ci); if(g){g.hidden=!S.open.has(k)&&!S.plain; el.setAttribute('aria-expanded',!g.hidden)} return}
