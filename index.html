@@ -181,8 +181,8 @@ body.filtering .nrow.dim{opacity:.35}
 .tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
 
 /* drawer */
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);z-index:40;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);
-  transform:translateX(105%);transition:transform .22s;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.drawer{position:fixed;top:var(--mastH,0px);right:0;bottom:0;width:min(440px,100vw);z-index:40;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);
+  transform:translateX(105%);transition:transform .22s;display:flex;flex-direction:column}
 .drawer.open{transform:none}
 .drawer-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
 .drawer-b{overflow:auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px));flex:1}
@@ -240,7 +240,8 @@ body.focus{--tsz:1.35rem}
   .rail small{display:none}
   .drawer{top:auto;left:0;width:100%;height:min(76vh,640px);border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(105%);padding-top:0}
   .drawer.open{transform:none}
-  .scrim.on{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:39}
+  .scrim.on{display:block;position:fixed;inset:var(--mastH,0px) 0 0 0;background:rgba(0,0,0,.35);z-index:39}
+  .drawer{max-height:calc(100vh - var(--mastH,0px))}
   .spk,.stage{padding-left:4px}
   .gloss{margin-left:4px}
   .ln{grid-template-columns:34px minmax(0,1fr);column-gap:6px;font-size:1.1rem}
@@ -520,14 +521,18 @@ function reviseView(){
 }
 
 /* ---------- drawer ---------- */
+const ALLN=D.extracts.flatMap(e=>e.notes.map(n=>NOTE[n.id]||n));
+function setMastH(){const m=$('#mast');if(m)document.documentElement.style.setProperty('--mastH',Math.max(0,Math.round(m.getBoundingClientRect().bottom))+'px')}
+window.addEventListener('resize',setMastH);window.addEventListener('scroll',setMastH,{passive:true});
 function openDrawer(mode,id){
+  setMastH();
   S.drawer={mode,id}; const d=$('#drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false');
   document.body.classList.add('drawer-open'); $('#scrim').classList.add('on'); drawerBody(); markOn();
 }
 function closeDrawer(){ S.drawer=null; const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); document.body.classList.remove('drawer-open'); $('#scrim').classList.remove('on'); markOn(); }
 function drawerBody(){
   const b=$('#dbody'), t=$('#dtitle'); if(!S.drawer)return;
-  if(S.drawer.mode==='note'){
+  if(S.drawer.mode==='note'){ if(b.dataset.nid!==S.drawer.id){b.scrollTop=0;b.dataset.nid=S.drawer.id}
     const n=NOTE[S.drawer.id], e=EX[n.ex]; t.textContent='Note · '+e.label;
     const list=e.notes, i=list.indexOf(n);
     const rt=S.rate[n.id]||0;
@@ -541,7 +546,7 @@ function drawerBody(){
     ${n.stretch?`<div class="dsec"><b>Stretch</b>${esc(n.stretch)}</div>`:''}
     <div class="dsec"><b>To remember</b>${esc(n.rev)}</div>
     <div class="dsec"><b>How secure is this?</b><div class="rate"><button class="r1" data-rate="1" aria-pressed="${rt===1}">Revisit</button><button class="r2" data-rate="2" aria-pressed="${rt===2}">Unsure</button><button class="r3" data-rate="3" aria-pressed="${rt===3}">Got it</button></div></div>
-    <div class="btnrow"><button class="btn ghost" data-nstep="-1" ${i<=0?'disabled style="opacity:.4"':''}>← Previous note</button><button class="btn ghost" data-nstep="1" ${i>=list.length-1?'disabled style="opacity:.4"':''}>Next note →</button></div>`;
+    <div class="btnrow">${(()=>{const g=ALLN.indexOf(n),pv=ALLN[g-1],nx=ALLN[g+1];return `<button class="btn ghost" data-nstep="-1" ${pv?'':'disabled style="opacity:.4"'}>← ${pv&&pv.ex!==n.ex?'Previous extract':'Previous note'}</button><button class="btn ghost" data-nstep="1" ${nx?'':'disabled style="opacity:.4"'}>${nx&&nx.ex!==n.ex?'Next extract':'Next note'} →</button><button class="btn ghost" data-dclose="1">Close ✕</button>`})()}</div>`;
   } else {
     t.textContent='Find in Act 1';
     b.innerHTML=`<div class="find"><input id="fq" type="search" placeholder="Search a word, e.g. honest" value="${esc(S.drawer.q||'')}" aria-label="Search Act 1"><div class="pillrow" style="margin:8px 0">${['honest','seem','duty','daughter','thief','eyes','Moor','fair','black'].map(w=>`<button class="tag" data-fp="${w}">${w}</button>`).join('')}</div><div id="fres"></div></div>`;
@@ -582,7 +587,8 @@ document.addEventListener('click',ev=>{
   const t=ev.target; const q=sel=>t.closest(sel);
   let el;
   if((el=q('a[href^="#"]'))){ev.preventDefault();go(el.getAttribute('href').slice(1));return}
-  if((el=q('mark.hl[data-n],button[data-n]'))){ev.preventDefault();hideTip();openDrawer('note',el.dataset.n);return}
+  if(q('[data-dclose]')){closeDrawer();return}
+  if((el=q('mark.hl[data-n],button[data-n]'))){ev.preventDefault();hideTip();if(S.drawer&&S.drawer.mode==='note'&&S.drawer.id===el.dataset.n){closeDrawer()}else openDrawer('note',el.dataset.n);return}
   if(!q('#tip'))hideTip();
   if((el=q('[data-theme]'))&&el!==document.documentElement){S.theme=S.theme===el.dataset.theme?null:el.dataset.theme;render();return}
   if((el=q('[data-lens]'))){const k=el.dataset.lens;S[k]=!S[k];store.set(k,S[k]);render();return}
@@ -606,7 +612,7 @@ document.addEventListener('click',ev=>{
   if((el=q('[data-qa]'))){const i=+el.dataset.qa;S.qz.ans=i;if(i===D.quiz[S.qz.i].c)S.qz.score++;render();return}
   if((el=q('[data-qz]'))){const k=el.dataset.qz; if(k==='reset')S.qz={i:0,score:0,ans:null,done:false}; else {if(S.qz.i<D.quiz.length-1){S.qz.i++;S.qz.ans=null}else S.qz.done=true} render();return}
   if((el=q('[data-rate]'))){const id=S.drawer.id,v=+el.dataset.rate; if(S.rate[id]===v)delete S.rate[id];else S.rate[id]=v; store.set('rate',S.rate);drawerBody();return}
-  if((el=q('[data-nstep]'))){const n=NOTE[S.drawer.id],e=EX[n.ex];const nx=e.notes[e.notes.indexOf(n)+(+el.dataset.nstep)];if(nx){S.drawer.id=nx.id;drawerBody();markOn();const mk=$(`mark.hl[data-n="${nx.id}"],.pin[data-n="${nx.id}"]`);if(mk)mk.scrollIntoView({block:'center',behavior:'smooth'})}return}
+  if((el=q('[data-nstep]'))){const n=NOTE[S.drawer.id];const nx=ALLN[ALLN.indexOf(n)+(+el.dataset.nstep)];if(!nx)return;if(nx.ex!==n.ex){S.pendingNote=nx.id;go(nx.ex);return}S.drawer.id=nx.id;drawerBody();markOn();const mk=$(`mark.hl[data-n="${nx.id}"],.pin[data-n="${nx.id}"]`);if(mk)mk.scrollIntoView({block:'center',behavior:'smooth'});return}
   if((el=q('[data-find]'))){openDrawer('find');S.drawer.q=el.dataset.find;drawerBody();return}
   if((el=q('[data-fp]'))){S.drawer.q=el.dataset.fp;drawerBody();return}
   if((el=q('.res'))&&el.dataset.hit){showCtx(+el.dataset.hit);return}
